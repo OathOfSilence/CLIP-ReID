@@ -83,7 +83,11 @@ class build_transformer(nn.Module):
         self.w_resolution = int((cfg.INPUT.SIZE_TRAIN[1]-16)//cfg.MODEL.STRIDE_SIZE[1] + 1)
         self.vision_stride_size = cfg.MODEL.STRIDE_SIZE[0]
         clip_model = load_clip_to_cpu(self.model_name, self.h_resolution, self.w_resolution, self.vision_stride_size)
-        clip_model.to("cuda")
+        # ===== 添加CPU支持=====
+        # 检查 CUDA 是否可用，否则使用 CPU
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        # 将模型移动到指定设备
+        clip_model.to(device)
 
         self.image_encoder = clip_model.visual
 
@@ -201,7 +205,12 @@ class PromptLearner(nn.Module):
         ctx_init = ctx_init.replace("_", " ")
         n_ctx = 4
         
-        tokenized_prompts = clip.tokenize(ctx_init).cuda() 
+        # ===== 添加cpu支持 =====
+        # 确保这里的 device 变量和之前定义模型时的一致
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        # 修改这一行
+        tokenized_prompts = clip.tokenize(ctx_init).to(device)
+        
         with torch.no_grad():
             embedding = token_embedding(tokenized_prompts).type(dtype) 
         self.tokenized_prompts = tokenized_prompts  # torch.Tensor

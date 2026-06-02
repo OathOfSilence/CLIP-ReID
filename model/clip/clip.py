@@ -41,6 +41,12 @@ def _download(url: str, root: str = os.path.expanduser("~/.cache/clip")):
     filename = os.path.basename(url)
 
     expected_sha256 = url.split("/")[-2]
+
+    # ===== 手动更改模型文件夹 =====
+    root = "checkpoints"
+    # ===== 手动更改模型文件名 =====
+    filename = "ViT-B-16.pt"
+    
     download_target = os.path.join(root, filename)
 
     if os.path.exists(download_target) and not os.path.isfile(download_target):
