@@ -29,12 +29,20 @@ def make_loss(cfg, num_classes):    # modified by gu
         xent = CrossEntropyLabelSmooth(num_classes=num_classes)
         print("label smooth on, numclasses:", num_classes)
 
+    def add_attribute_loss(loss, gender_score=None, age_score=None, gender=None, age=None):
+        if gender_score is not None and gender is not None and cfg.MODEL.GENDER_LOSS_WEIGHT > 0 and (gender >= 0).any():
+            loss = loss + cfg.MODEL.GENDER_LOSS_WEIGHT * F.cross_entropy(gender_score, gender, ignore_index=-1)
+        if age_score is not None and age is not None and cfg.MODEL.AGE_LOSS_WEIGHT > 0 and (age >= 0).any():
+            loss = loss + cfg.MODEL.AGE_LOSS_WEIGHT * F.cross_entropy(age_score, age, ignore_index=-1)
+        return loss
+
     if sampler == 'softmax':
-        def loss_func(score, feat, target):
-            return F.cross_entropy(score, target)
+        def loss_func(score, feat, target, gender_score=None, age_score=None, gender=None, age=None):
+            loss = F.cross_entropy(score, target)
+            return add_attribute_loss(loss, gender_score, age_score, gender, age)
 
     elif cfg.DATALOADER.SAMPLER == 'softmax_triplet':
-        def loss_func(score, feat, target, target_cam, i2tscore = None):
+        def loss_func(score, feat, target, target_cam, i2tscore=None, gender_score=None, age_score=None, gender=None, age=None):
             if cfg.MODEL.METRIC_LOSS_TYPE == 'triplet':
                 if cfg.MODEL.IF_LABELSMOOTH == 'on':
                     if isinstance(score, list):
@@ -54,7 +62,8 @@ def make_loss(cfg, num_classes):    # modified by gu
                     if i2tscore != None:
                         I2TLOSS = xent(i2tscore, target)
                         loss = cfg.MODEL.I2T_LOSS_WEIGHT * I2TLOSS + loss
-                        
+                    loss = add_attribute_loss(loss, gender_score, age_score, gender, age)
+
                     return loss
                 else:
                     if isinstance(score, list):
@@ -74,7 +83,7 @@ def make_loss(cfg, num_classes):    # modified by gu
                     if i2tscore != None:
                         I2TLOSS = F.cross_entropy(i2tscore, target)
                         loss = cfg.MODEL.I2T_LOSS_WEIGHT * I2TLOSS + loss
-
+                    loss = add_attribute_loss(loss, gender_score, age_score, gender, age)
 
                     return loss
             else:

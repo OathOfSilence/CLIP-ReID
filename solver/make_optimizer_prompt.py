@@ -1,6 +1,9 @@
 import torch
 
 
+_STAGE2_FC_KEYWORDS = ("classifier", "arcface")
+
+
 def make_optimizer_1stage(cfg, model):
     params = []
     keys = []
@@ -38,9 +41,9 @@ def make_optimizer_2stage(cfg, model, center_criterion):
             lr = cfg.SOLVER.STAGE2.BASE_LR * cfg.SOLVER.STAGE2.BIAS_LR_FACTOR
             weight_decay = cfg.SOLVER.STAGE2.WEIGHT_DECAY_BIAS
         if cfg.SOLVER.STAGE2.LARGE_FC_LR:
-            if "classifier" in key or "arcface" in key:
-                lr = cfg.SOLVER.BASE_LR * 2
-                print('Using two times learning rate for fc ')
+            if any(fc_key in key for fc_key in _STAGE2_FC_KEYWORDS):
+                lr = cfg.SOLVER.STAGE2.BASE_LR * 2
+                print('Using two times learning rate for fc: {}'.format(key))
         
         params += [{"params": [value], "lr": lr, "weight_decay": weight_decay}]
         keys += [key]

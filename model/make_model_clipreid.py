@@ -63,6 +63,8 @@ class build_transformer(nn.Module):
             self.in_planes = 2048
             self.in_planes_proj = 1024
         self.num_classes = num_classes
+        self.num_genders = cfg.MODEL.NUM_GENDERS
+        self.num_ages = cfg.MODEL.NUM_AGES
         self.camera_num = camera_num
         self.view_num = view_num
         self.sie_coe = cfg.MODEL.SIE_COE   
@@ -71,6 +73,10 @@ class build_transformer(nn.Module):
         self.classifier.apply(weights_init_classifier)
         self.classifier_proj = nn.Linear(self.in_planes_proj, self.num_classes, bias=False)
         self.classifier_proj.apply(weights_init_classifier)
+        self.gender_classifier = nn.Linear(self.in_planes_proj, self.num_genders, bias=False)
+        self.gender_classifier.apply(weights_init_classifier)
+        self.age_classifier = nn.Linear(self.in_planes_proj, self.num_ages, bias=False)
+        self.age_classifier.apply(weights_init_classifier)
 
         self.bottleneck = nn.BatchNorm1d(self.in_planes)
         self.bottleneck.bias.requires_grad_(False)
@@ -143,7 +149,9 @@ class build_transformer(nn.Module):
         if self.training:
             cls_score = self.classifier(feat)
             cls_score_proj = self.classifier_proj(feat_proj)
-            return [cls_score, cls_score_proj], [img_feature_last, img_feature, img_feature_proj], img_feature_proj
+            gender_score = self.gender_classifier(feat_proj)
+            age_score = self.age_classifier(feat_proj)
+            return [cls_score, cls_score_proj], [img_feature_last, img_feature, img_feature_proj], img_feature_proj, gender_score, age_score
 
         else:
             if self.neck_feat == 'after':
