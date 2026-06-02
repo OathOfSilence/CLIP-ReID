@@ -30,6 +30,14 @@ def do_train_stage2(cfg,
 
     logger = logging.getLogger("transreid.train")
     logger.info('start training')
+    if cfg.MODEL.MEMORY_TRIPLET:
+        logger.info(
+            "Memory triplet mining enabled: warmup_epochs={}, momentum={}, topk_neg={}".format(
+                cfg.MODEL.MEMORY_WARMUP_EPOCHS, cfg.MODEL.MEMORY_MOMENTUM, cfg.MODEL.MEMORY_TOPK_NEG
+            )
+        )
+    else:
+        logger.info("Memory triplet mining disabled; using batch-local triplet mining.")
     _LOCAL_PROCESS_GROUP = None
     if device:
         model.to(local_rank)
@@ -78,8 +86,12 @@ def do_train_stage2(cfg,
 
         scheduler.step()
 
+        if cfg.MODEL.MEMORY_TRIPLET:
+            memory_state = "active" if epoch > cfg.MODEL.MEMORY_WARMUP_EPOCHS else "warming up"
+            logger.info("Memory triplet mining is {} at epoch {}.".format(memory_state, epoch))
+
         model.train()
-        for n_iter, (img, vid, target_cam, target_view) in enumerate(train_loader_stage2):
+        for n_iter, (img, vid, target_cam, target_view, indices) in enumerate(train_loader_stage2):
             optimizer.zero_grad()
             optimizer_center.zero_grad()
             img = img.to(device)
@@ -95,7 +107,7 @@ def do_train_stage2(cfg,
             with amp.autocast(enabled=True):
                 score, feat, image_features = model(x = img, label = target, cam_label=target_cam, view_label=target_view)
                 logits = image_features @ text_features.t()
-                loss = loss_fn(score, feat, target, target_cam, logits)
+                loss = loss_fn(score, feat, target, target_cam, logits, indices=indices.to(device), epoch=epoch)
 
             scaler.scale(loss).backward()
 

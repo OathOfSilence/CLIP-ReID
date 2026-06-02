@@ -41,6 +41,16 @@ _C.MODEL.TRIPLET_LOSS_WEIGHT = 1.0
 _C.MODEL.I2T_LOSS_WEIGHT = 1.0
 
 _C.MODEL.METRIC_LOSS_TYPE = 'triplet'
+# Enable global memory-bank hard negative mining for triplet loss.
+_C.MODEL.MEMORY_TRIPLET = True
+# Momentum used to update stored image features in the memory bank.
+_C.MODEL.MEMORY_MOMENTUM = 0.2
+# Epochs to train with ordinary batch triplet while warming up the memory bank.
+_C.MODEL.MEMORY_WARMUP_EPOCHS = 5
+# Randomly choose one of the top-k closest memory negatives; 1 means hardest.
+_C.MODEL.MEMORY_TOPK_NEG = 1
+# Normalize features before writing to and mining from the memory bank.
+_C.MODEL.MEMORY_FEATURE_NORM = True
 # If train with multi-gpu ddp mode, options: 'True', 'False'
 _C.MODEL.DIST_TRAIN = False
 # If train with soft triplet loss, options: 'True', 'False'
