@@ -42,7 +42,7 @@ _C.MODEL.I2T_LOSS_WEIGHT = 1.0
 
 _C.MODEL.METRIC_LOSS_TYPE = 'triplet'
 # Enable global memory-bank hard negative mining for triplet loss.
-_C.MODEL.MEMORY_TRIPLET = False
+_C.MODEL.MEMORY_TRIPLET = True
 # Momentum used to update stored image features in the memory bank.
 _C.MODEL.MEMORY_MOMENTUM = 0.2
 # Epochs to train with ordinary batch triplet while warming up the memory bank.
