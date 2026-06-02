@@ -30,7 +30,8 @@ class BaseDataset(object):
 
     def get_imagedata_info(self, data):
         pids, cams, tracks = [], [], []
-        for _, pid, camid, trackid in data:
+        for item in data:
+            _, pid, camid, trackid = item[:4]
             pids += [pid]
             cams += [camid]
             tracks += [trackid]
@@ -42,6 +43,17 @@ class BaseDataset(object):
         num_imgs = len(data)
         num_views = len(tracks)
         return num_pids, num_imgs, num_cams, num_views
+
+    def get_attribute_info(self, data):
+        genders, ages = [], []
+        for item in data:
+            if len(item) >= 6:
+                gender, age = item[4:6]
+                if gender >= 0:
+                    genders += [gender]
+                if age >= 0:
+                    ages += [age]
+        return len(set(genders)), len(set(ages))
 
     def print_dataset_statistics(self):
         raise NotImplementedError
@@ -68,18 +80,23 @@ class BaseImageDataset(BaseDataset):
 
 
 class ImageDataset(Dataset):
-    def __init__(self, dataset, transform=None):
+    def __init__(self, dataset, transform=None, return_attributes=False):
         self.dataset = dataset
         self.transform = transform
+        self.return_attributes = return_attributes
 
     def __len__(self):
         return len(self.dataset)
 
     def __getitem__(self, index):
-        img_path, pid, camid, trackid = self.dataset[index]
+        item = self.dataset[index]
+        img_path, pid, camid, trackid = item[:4]
+        gender, age = item[4:6] if len(item) >= 6 else (-1, -1)
         img = read_image(img_path)
 
         if self.transform is not None:
             img = self.transform(img)
 
+        if self.return_attributes:
+            return img, pid, camid, trackid, gender, age, img_path.split('/')[-1]
         return img, pid, camid, trackid, img_path.split('/')[-1]

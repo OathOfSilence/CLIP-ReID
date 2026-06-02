@@ -42,6 +42,12 @@ def do_train_stage2(cfg,
 
     loss_meter = AverageMeter()
     acc_meter = AverageMeter()
+    gender_loss_meter = AverageMeter()
+    age_loss_meter = AverageMeter()
+    weighted_gender_loss_meter = AverageMeter()
+    weighted_age_loss_meter = AverageMeter()
+    gender_acc_meter = AverageMeter()
+    age_acc_meter = AverageMeter()
 
     evaluator = R1_mAP_eval(num_query, max_rank=50, feat_norm=cfg.TEST.FEAT_NORM)
     scaler = amp.GradScaler()
@@ -74,12 +80,18 @@ def do_train_stage2(cfg,
         start_time = time.time()
         loss_meter.reset()
         acc_meter.reset()
+        gender_loss_meter.reset()
+        age_loss_meter.reset()
+        weighted_gender_loss_meter.reset()
+        weighted_age_loss_meter.reset()
+        gender_acc_meter.reset()
+        age_acc_meter.reset()
         evaluator.reset()
 
         scheduler.step()
 
         model.train()
-        for n_iter, (img, vid, target_cam, target_view) in enumerate(train_loader_stage2):
+        for n_iter, (img, vid, target_cam, target_view, gender, age) in enumerate(train_loader_stage2):
             optimizer.zero_grad()
             optimizer_center.zero_grad()
             img = img.to(device)
@@ -92,10 +104,12 @@ def do_train_stage2(cfg,
                 target_view = target_view.to(device)
             else: 
                 target_view = None
+            gender = gender.to(device)
+            age = age.to(device)
             with amp.autocast(enabled=True):
-                score, feat, image_features = model(x = img, label = target, cam_label=target_cam, view_label=target_view)
+                score, feat, image_features, gender_score, age_score = model(x = img, label = target, cam_label=target_cam, view_label=target_view)
                 logits = image_features @ text_features.t()
-                loss = loss_fn(score, feat, target, target_cam, logits)
+                loss, loss_details = loss_fn(score, feat, target, target_cam, logits, gender_score, age_score, gender, age, return_details=True)
 
             scaler.scale(loss).backward()
 
@@ -109,15 +123,29 @@ def do_train_stage2(cfg,
                 scaler.update()
 
             acc = (logits.max(1)[1] == target).float().mean()
+            valid_gender = gender >= 0
+            valid_age = age >= 0
 
             loss_meter.update(loss.item(), img.shape[0])
             acc_meter.update(acc, 1)
+            if loss_details['gender_loss'] is not None:
+                gender_loss_meter.update(loss_details['gender_loss'].item(), valid_gender.sum().item())
+                weighted_gender_loss_meter.update(loss_details['weighted_gender_loss'].item(), img.shape[0])
+                gender_acc = (gender_score.max(1)[1][valid_gender] == gender[valid_gender]).float().mean()
+                gender_acc_meter.update(gender_acc, valid_gender.sum().item())
+            if loss_details['age_loss'] is not None:
+                age_loss_meter.update(loss_details['age_loss'].item(), valid_age.sum().item())
+                weighted_age_loss_meter.update(loss_details['weighted_age_loss'].item(), img.shape[0])
+                age_acc = (age_score.max(1)[1][valid_age] == age[valid_age]).float().mean()
+                age_acc_meter.update(age_acc, valid_age.sum().item())
 
             torch.cuda.synchronize()
             if (n_iter + 1) % log_period == 0:
-                logger.info("Epoch[{}] Iteration[{}/{}] Loss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}"
+                logger.info("Epoch[{}] Iteration[{}/{}] Loss: {:.3f}, Acc: {:.3f}, GenderLoss: {:.3f}, AgeLoss: {:.3f}, WGenderLoss: {:.3f}, WAgeLoss: {:.3f}, GenderAcc: {:.3f}, AgeAcc: {:.3f}, Base Lr: {:.2e}"
                             .format(epoch, (n_iter + 1), len(train_loader_stage2),
-                                    loss_meter.avg, acc_meter.avg, scheduler.get_lr()[0]))
+                                    loss_meter.avg, acc_meter.avg, gender_loss_meter.avg, age_loss_meter.avg,
+                                    weighted_gender_loss_meter.avg, weighted_age_loss_meter.avg,
+                                    gender_acc_meter.avg, age_acc_meter.avg, scheduler.get_lr()[0]))
 
         end_time = time.time()
         time_per_batch = (end_time - start_time) / (n_iter + 1)

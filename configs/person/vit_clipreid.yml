@@ -8,6 +8,11 @@ MODEL:
   ID_LOSS_WEIGHT : 0.25
   TRIPLET_LOSS_WEIGHT : 1.0
   I2T_LOSS_WEIGHT : 1.0
+  GENDER_LOSS_WEIGHT: 0.2
+  AGE_LOSS_WEIGHT: 0.2
+  NUM_GENDERS: 2
+  NUM_AGES: 4
+  STAGE1_WEIGHT: ''  # set this and SOLVER.STAGE1.DO_TRAIN=False to reuse a stage1 checkpoint
   # SIE_CAMERA: True
   # SIE_COE : 1.0
 
@@ -27,6 +32,7 @@ DATALOADER:
 
 SOLVER:
   STAGE1:
+    DO_TRAIN: True
     IMS_PER_BATCH: 64
     OPTIMIZER_NAME: "Adam"
     BASE_LR: 0.00035
@@ -68,6 +74,7 @@ TEST:
   FEAT_NORM: 'yes'
 
 DATASETS:
+  NAMES: 'last'
 #   NAMES: ('market1501')
 #   ROOT_DIR: ('')
 # OUTPUT_DIR: ''
