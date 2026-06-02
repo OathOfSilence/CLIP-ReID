@@ -55,7 +55,7 @@ def do_train(cfg,
         scheduler.step()
 
         model.train()
-        for n_iter, (img, vid, target_cam, target_view) in enumerate(train_loader):
+        for n_iter, (img, vid, target_cam, target_view, indices) in enumerate(train_loader):
             optimizer.zero_grad()
             optimizer_center.zero_grad()
             img = img.to(device)
@@ -70,7 +70,7 @@ def do_train(cfg,
                 target_view = None
             with amp.autocast(enabled=True):
                 score, feat = model(img, target, cam_label=target_cam, view_label=target_view)
-                loss = loss_fn(score, feat, target, target_cam)
+                loss = loss_fn(score, feat, target, target_cam, indices=indices.to(device), epoch=epoch)
 
             scaler.scale(loss).backward()
 
