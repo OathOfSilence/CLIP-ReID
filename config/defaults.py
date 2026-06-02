@@ -25,6 +25,9 @@ _C.MODEL.NAME = 'resnet50'
 _C.MODEL.LAST_STRIDE = 1
 # Path to pretrained model of backbone
 _C.MODEL.PRETRAIN_PATH = ''
+# Path to a trained stage1 checkpoint used when SOLVER.STAGE1.DO_TRAIN is False.
+# If empty, train_clipreid.py uses OUTPUT_DIR/MODEL.NAME_stage1_SOLVER.STAGE1.MAX_EPOCHS.pth.
+_C.MODEL.STAGE1_WEIGHT = ''
 
 # Use ImageNet pretrained model to initialize backbone or use self trained model to initialize the whole model
 # Options: 'imagenet' , 'self' , 'finetune'
@@ -116,6 +119,7 @@ _C.SOLVER.MARGIN = 0.3
 # ---------------------------------------------------------------------------- #
 # Name of optimizer
 _C.SOLVER.STAGE1 = CN()
+_C.SOLVER.STAGE1.DO_TRAIN = True
 
 _C.SOLVER.STAGE1.IMS_PER_BATCH = 64
 
