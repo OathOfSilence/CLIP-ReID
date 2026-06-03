@@ -187,3 +187,48 @@ class AMSoftmax(nn.Module):
         costh_m = costh - delt_costh
         costh_m_s = self.s * costh_m
         return costh_m_s
+
+
+class AttributeContrastiveLoss(nn.Module):
+    """Push attribute-inconsistent negative pairs apart in a mini-batch."""
+
+    def __init__(self, margin=1.0, use_gender=True, use_age=True, age_min_gap=1, normalize_feature=True):
+        super(AttributeContrastiveLoss, self).__init__()
+        self.margin = margin
+        self.use_gender = use_gender
+        self.use_age = use_age
+        self.age_min_gap = age_min_gap
+        self.normalize_feature = normalize_feature
+
+    def forward(self, features, targets, genders=None, ages=None):
+        if genders is None and ages is None:
+            return features.sum() * 0.0
+
+        if self.normalize_feature:
+            features = F.normalize(features, p=2, dim=1)
+        dist_mat = torch.cdist(features, features, p=2)
+
+        targets = targets.view(-1)
+        neg_mask = targets.unsqueeze(0) != targets.unsqueeze(1)
+        attr_mask = torch.zeros_like(neg_mask, dtype=torch.bool)
+
+        if self.use_gender and genders is not None:
+            genders = genders.view(-1)
+            valid_gender = genders >= 0
+            gender_mismatch = genders.unsqueeze(0) != genders.unsqueeze(1)
+            gender_valid_pair = valid_gender.unsqueeze(0) & valid_gender.unsqueeze(1)
+            attr_mask = attr_mask | (gender_valid_pair & gender_mismatch)
+
+        if self.use_age and ages is not None:
+            ages = ages.view(-1)
+            valid_age = ages >= 0
+            age_gap = torch.abs(ages.unsqueeze(0) - ages.unsqueeze(1))
+            age_valid_pair = valid_age.unsqueeze(0) & valid_age.unsqueeze(1)
+            attr_mask = attr_mask | (age_valid_pair & (age_gap >= self.age_min_gap))
+
+        pair_mask = neg_mask & attr_mask
+        if not torch.any(pair_mask):
+            return features.sum() * 0.0
+
+        pair_loss = F.relu(self.margin - dist_mat[pair_mask]).pow(2)
+        return pair_loss.mean()
