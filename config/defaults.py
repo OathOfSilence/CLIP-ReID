@@ -39,6 +39,13 @@ _C.MODEL.ID_LOSS_TYPE = 'softmax'
 _C.MODEL.ID_LOSS_WEIGHT = 1.0
 _C.MODEL.TRIPLET_LOSS_WEIGHT = 1.0
 _C.MODEL.I2T_LOSS_WEIGHT = 1.0
+# Attribute contrastive loss for negative pairs with mismatched gender/age labels.
+_C.MODEL.ATTR_LOSS_WEIGHT = 0.0
+_C.MODEL.ATTR_CONTRASTIVE_MARGIN = 1.0
+_C.MODEL.ATTR_USE_GENDER = True
+_C.MODEL.ATTR_USE_AGE = True
+_C.MODEL.ATTR_AGE_MIN_GAP = 1
+_C.MODEL.ATTR_NORMALIZE_FEATURE = True
 
 _C.MODEL.METRIC_LOSS_TYPE = 'triplet'
 # If train with multi-gpu ddp mode, options: 'True', 'False'

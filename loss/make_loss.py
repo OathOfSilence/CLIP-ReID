@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from .softmax_loss import CrossEntropyLabelSmooth, LabelSmoothingCrossEntropy
 from .triplet_loss import TripletLoss
 from .center_loss import CenterLoss
+from .metric_learning import AttributeContrastiveLoss
 
 
 def make_loss(cfg, num_classes):    # modified by gu
@@ -25,16 +26,35 @@ def make_loss(cfg, num_classes):    # modified by gu
         print('expected METRIC_LOSS_TYPE should be triplet'
               'but got {}'.format(cfg.MODEL.METRIC_LOSS_TYPE))
 
+    attr_contrast = AttributeContrastiveLoss(
+        margin=cfg.MODEL.ATTR_CONTRASTIVE_MARGIN,
+        use_gender=cfg.MODEL.ATTR_USE_GENDER,
+        use_age=cfg.MODEL.ATTR_USE_AGE,
+        age_min_gap=cfg.MODEL.ATTR_AGE_MIN_GAP,
+        normalize_feature=cfg.MODEL.ATTR_NORMALIZE_FEATURE,
+    )
+
+    def compute_attr_loss(feat, target, gender=None, age=None):
+        if cfg.MODEL.ATTR_LOSS_WEIGHT <= 0 or (gender is None and age is None):
+            if isinstance(feat, list):
+                return feat[0].sum() * 0.0
+            return feat.sum() * 0.0
+        if isinstance(feat, list):
+            return sum(attr_contrast(feats, target, gender, age) for feats in feat[0:])
+        return attr_contrast(feat, target, gender, age)
+
     if cfg.MODEL.IF_LABELSMOOTH == 'on':
         xent = CrossEntropyLabelSmooth(num_classes=num_classes)
         print("label smooth on, numclasses:", num_classes)
 
     if sampler == 'softmax':
-        def loss_func(score, feat, target):
-            return F.cross_entropy(score, target)
+        def loss_func(score, feat, target, target_cam=None, i2tscore=None, gender=None, age=None):
+            loss = F.cross_entropy(score, target)
+            attr_loss = compute_attr_loss(feat, target, gender, age)
+            return loss + cfg.MODEL.ATTR_LOSS_WEIGHT * attr_loss
 
     elif cfg.DATALOADER.SAMPLER == 'softmax_triplet':
-        def loss_func(score, feat, target, target_cam, i2tscore = None):
+        def loss_func(score, feat, target, target_cam, i2tscore=None, gender=None, age=None):
             if cfg.MODEL.METRIC_LOSS_TYPE == 'triplet':
                 if cfg.MODEL.IF_LABELSMOOTH == 'on':
                     if isinstance(score, list):
@@ -54,6 +74,9 @@ def make_loss(cfg, num_classes):    # modified by gu
                     if i2tscore != None:
                         I2TLOSS = xent(i2tscore, target)
                         loss = cfg.MODEL.I2T_LOSS_WEIGHT * I2TLOSS + loss
+
+                    ATTR_LOSS = compute_attr_loss(feat, target, gender, age)
+                    loss = loss + cfg.MODEL.ATTR_LOSS_WEIGHT * ATTR_LOSS
                         
                     return loss
                 else:
@@ -75,6 +98,8 @@ def make_loss(cfg, num_classes):    # modified by gu
                         I2TLOSS = F.cross_entropy(i2tscore, target)
                         loss = cfg.MODEL.I2T_LOSS_WEIGHT * I2TLOSS + loss
 
+                    ATTR_LOSS = compute_attr_loss(feat, target, gender, age)
+                    loss = loss + cfg.MODEL.ATTR_LOSS_WEIGHT * ATTR_LOSS
 
                     return loss
             else:
